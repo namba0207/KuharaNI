@@ -1,0 +1,16 @@
+{
+    "LEDConfig": {
+        "RigidBody1": {
+            "port": "COM6"
+        },
+        "RigidBody2": {
+            "port": "COM7"
+        },
+        "RigidBody3": {
+            "port": "COM9"
+        },
+        "RigidBody4": {
+            "port": "COM8"
+        }
+    }
+}
