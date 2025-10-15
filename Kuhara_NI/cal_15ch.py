@@ -1,20 +1,19 @@
 # NI計測用
-import sys
 import csv
-import time
-import threading
+import os
 import queue
+import shutil
+import subprocess
+import sys
+import threading
+import time
 from datetime import datetime
 
-import numpy as np
 import nidaqmx
-from nidaqmx.constants import TerminalConfiguration, AcquisitionType
-
-from PyQt5 import QtWidgets, QtCore
+import numpy as np
 import pyqtgraph as pg
-import subprocess
-import shutil
-import os
+from nidaqmx.constants import AcquisitionType, TerminalConfiguration
+from PyQt5 import QtCore, QtWidgets
 from UDPmanager.UDP_client import UDP_Client
 
 # ----------------------------
@@ -31,7 +30,7 @@ PLOT_DURATION_SEC = 0.5 #何秒分プロット表示しておくか
 PLOT_BUFFER_SIZE = int(SAMPLING_RATE * PLOT_DURATION_SEC)
 
 IP = "192.168.1.106"
-# IP = "192.168.1.120" 
+# IP = "192.168.1.120"
 # IP = "127.0.0.1"
 PORT = 4000
 
@@ -151,7 +150,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mx_curve2 = self.moment_plot2.plot(pen='b', name='Mx')
         self.my_curve2 = self.moment_plot2.plot(pen='g', name='My')
         self.mz_curve2 = self.moment_plot2.plot(pen='r', name='Mz')
-        
+
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.plot_widget)
@@ -214,7 +213,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.acquisition_thread.start()
         # self.buffer_thread = threading.Thread(target=self.buffer_def)
         # self.buffer_thread.daemon = True
-        # self.buffer_thread.start()        
+        # self.buffer_thread.start()
         # self.udp_thread = threading.Thread(target=self.udp_send)
         # self.udp_thread.daemon = True
         # self.udp_thread.start()
@@ -339,8 +338,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 calibrated = volt_matrix @ MATRIX_LIST[0].T
                 calibrated = calibrated @ MATRIX_LIST[2].T*1000
-                calibrated2 = volt_matrix2 @ MATRIX_LIST[1].T
-                calibrated2 = calibrated2 @ MATRIX_LIST[2].T*1000
+                #calibrated2 = volt_matrix2 @ MATRIX_LIST[1].T
+                #calibrated2 = calibrated2 @ MATRIX_LIST[2].T*1000
 
                 for i in range(BUFFER_SIZE):
                     acc1_v = float(acc1_volts[i])
@@ -406,7 +405,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     #    self.flag_v = 1
                     # elif acc3_v < 1 & self.flag_v == 1:
                     #     self.flag_v = 0
-                        
+
 
     def start_recording(self):
         if self.worker_thread and self.worker_thread.is_alive():

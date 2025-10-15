@@ -1,27 +1,26 @@
 # 6軸2つをUDP通信で送信するプログラム
 # enterキーでオフセット
 
-import sys
+import queue
 import signal
+import sys
 import threading
 import time
-import queue
 
-from PyQt5 import QtWidgets, QtCore
-
-import numpy as np
 import nidaqmx
-from nidaqmx.constants import TerminalConfiguration, AcquisitionType
-
-from UDPmanager.UDP_client import UDP_Client
+import numpy as np
 from footswitch.footswitch_manager_default import FootSwitchManager
+from nidaqmx.constants import AcquisitionType, TerminalConfiguration
+from PyQt5 import QtCore, QtWidgets
+from UDPmanager.UDP_client import UDP_Client
+
 # from footswitch.footswitch_manager import FootSwitchManager
 
 
 # ----------------------------
 # Configuration
 # ----------------------------
-DEVICE_NAME = "Dev1"
+DEVICE_NAME = "Dev2"
 CHANNELS = ["ai0", "ai1", "ai2", "ai3", "ai4", "ai5"]
 #CHANNELS = ["ai0", "ai1", "ai2", "ai3", "ai4", "ai5", "ai16", "ai17", "ai18", "ai19", "ai20", "ai21"]
 SAMPLING_RATE = 1000
@@ -45,7 +44,7 @@ PORT = 4000
 #        [-0.00227, -0.00009, -0.00009,  0.00006,  0.00503,  0.00004 ],
 #        [-0.00001,  0.00003,  0.00005, -0.00004, -0.00003,  0.00172 ],
 #    ]
-#)       
+#)
 right_transformation_matrix = np.array(
     [
         [0.10914659,	-0.175033812,	0.033204546,	37.83829747,	0.371201624,	-37.98082518],
@@ -278,11 +277,11 @@ def main(window):
             udp_list.append(round(window.mx2,4))
             udp_list.append(round(window.my2,4))
             udp_list.append(round(window.mz2,4))
-            
+
             udp_client.send(udp_list, IP, PORT)
             # print(udp_list)
             time.sleep(0.01)  # UDP送信レート
-       
+
 
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected. Exiting gracefully.")

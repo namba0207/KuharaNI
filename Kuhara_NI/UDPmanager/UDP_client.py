@@ -15,7 +15,7 @@ class UDP_Client:
 
 
 if __name__ == "__main__":
-    client_ip = "192.168.1.101"  # 送信先のIPアドレス
+    client_ip = "192.168.1.110"  # 送信先のIPアドレス
     client_port = 7375  # 送信先のポート
 
     sender = UDP_Client()

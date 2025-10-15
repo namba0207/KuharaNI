@@ -1,26 +1,25 @@
-import sys
 import csv
-import time
-import threading
+import os
 import queue
+import shutil
+import subprocess
+import sys
+import threading
+import time
 from datetime import datetime
 
-import numpy as np
 import nidaqmx
-from nidaqmx.constants import TerminalConfiguration, AcquisitionType
-
-from PyQt5 import QtWidgets, QtCore
+import numpy as np
 import pyqtgraph as pg
-import subprocess
-import shutil
-import os
+from nidaqmx.constants import AcquisitionType, TerminalConfiguration
+from PyQt5 import QtCore, QtWidgets
 from UDPmanager.UDP_client import UDP_Client
 
 # ----------------------------
 # Configuration
 # ----------------------------
-DEVICE_NAME = "Dev1"
-CHANNELS = ["ai0", "ai1", "ai2", "ai3", "ai4", "ai5", "ai16", "ai17", "ai18", "ai19", "ai20", "ai21"]
+DEVICE_NAME = "Dev2"
+CHANNELS = ["ai1", "ai2", "ai3", "ai4", "ai5", "ai6", "ai17", "ai18", "ai19", "ai20", "ai21", "ai22"]
 SAMPLING_RATE = 1000
 BUFFER_SIZE = 50
 
@@ -29,7 +28,7 @@ PLOT_DURATION_SEC = 0.5 #何秒分プロット表示しておくか
 PLOT_BUFFER_SIZE = int(SAMPLING_RATE * PLOT_DURATION_SEC)
 
 # IP = "192.168.1.6"
-# IP = "192.168.1.120" 
+# IP = "192.168.1.120"
 IP = "127.0.0.1"
 PORT = 4000
 
@@ -43,14 +42,24 @@ PORT = 4000
 #     [ 0.000568608,-0.11790644, 0.003529006,-0.11234363, -0.00040179,-0.11817436]
 # ])
 # SL241204
+# right_transformation_matrix = np.array(
+#     [
+#         [ 0.82075, -0.01557,  0.01833, -0.00573,  0.13980, -0.03723 ],
+#         [ 0.01000,  0.85419,  0.02723, -0.07019,  0.00863, -0.04327 ],
+#         [-0.00113,  0.00209,  1.00162,  0.00393,  0.00109, -0.00561 ],
+#         [ 0.00001,  0.00241,  0.00029,  0.00537, -0.00001,  0.00005 ],
+#         [-0.00227, -0.00009, -0.00009,  0.00006,  0.00503,  0.00004 ],
+#         [-0.00001,  0.00003,  0.00005, -0.00004, -0.00003,  0.00186 ],
+#     ]
+# )
 right_transformation_matrix = np.array(
     [
-        [ 0.82075, -0.01557,  0.01833, -0.00573,  0.13980, -0.03723 ],
-        [ 0.01000,  0.85419,  0.02723, -0.07019,  0.00863, -0.04327 ],
-        [-0.00113,  0.00209,  1.00162,  0.00393,  0.00109, -0.00561 ],
-        [ 0.00001,  0.00241,  0.00029,  0.00537, -0.00001,  0.00005 ],
-        [-0.00227, -0.00009, -0.00009,  0.00006,  0.00503,  0.00004 ],
-        [-0.00001,  0.00003,  0.00005, -0.00004, -0.00003,  0.00186 ],
+        [0.10914659,	-0.175033812,	0.033204546,	37.83829747,	0.371201624,	-37.98082518],
+        [0.794370141,	-0.698838417,	-0.26502932,	-22.17367438,	43.25516102,	-21.6462012],
+        [-39.12493641,	-41.91198025,	-43.94914847,	-1.278777407,	0.219403608,	0.120865016],
+        [-0.969774592,	0.010021827,	1.019471782,	-0.032829433,	-0.004120468,	0.010536731],
+        [0.538330989,	-1.113419754,	0.592542023,	0.028002207,	-0.011676863,	0.00352569],
+        [0.01011438,	0.002721234,	0.030332475,	-0.921533233,	-0.905764859,	-0.919035874],
     ]
 )
 # SL241001
@@ -65,15 +74,16 @@ left_transformation_matrix = np.array(
     ]
 )
 # Z軸180度回転の6x6行列万博ver
-zax_180_matrix = np.array([
-            [-1,  0,  0,  0,  0,  0],
-            [ 0, -1,  0,  0,  0,  0],
-            [ 0,  0,  1,  0,  0,  0],
-            [ 0,  0,  0, -1,  0,  0],
-            [ 0,  0,  0,  0, -1,  0],
-            [ 0,  0,  0,  0,  0,  1]
-        ])
-MATRIX_LIST = [right_transformation_matrix, left_transformation_matrix, zax_180_matrix]
+# zax_180_matrix = np.array([
+#             [-1,  0,  0,  0,  0,  0],
+#             [ 0, -1,  0,  0,  0,  0],
+#             [ 0,  0,  1,  0,  0,  0],
+#             [ 0,  0,  0, -1,  0,  0],
+#             [ 0,  0,  0,  0, -1,  0],
+#             [ 0,  0,  0,  0,  0,  1]
+#         ])
+# MATRIX_LIST = [right_transformation_matrix, left_transformation_matrix, zax_180_matrix]
+MATRIX_LIST = [right_transformation_matrix, left_transformation_matrix]
 
 #やり取りされている電圧値や力の値がちゃんと数値として成り立っているかの確認
 def is_valid_number(val):
@@ -145,7 +155,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mx_curve2 = self.moment_plot2.plot(pen='b', name='Mx')
         self.my_curve2 = self.moment_plot2.plot(pen='g', name='My')
         self.mz_curve2 = self.moment_plot2.plot(pen='r', name='Mz')
-        
+
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.plot_widget)
@@ -315,8 +325,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 volt_matrix = data[:, 0:6]  # ai0~ai5
                 volt_matrix2 = data[:, 6:12]  # ai16~ai21
                 # 電圧地を見る場合、上を伏せ下を表示
-                calibrated = volt_matrix @ MATRIX_LIST[0].T @ MATRIX_LIST[2].T*1000
-                calibrated2 = volt_matrix2 @ MATRIX_LIST[1].T @ MATRIX_LIST[2].T*1000
+                calibrated = volt_matrix @ MATRIX_LIST[0].T
+                calibrated2 = volt_matrix2 @ MATRIX_LIST[1].T
                 # calibrated = volt_matrix
                 # calibrated2 = volt_matrix2
 
@@ -355,7 +365,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 udp_list.append(mz2)
                 udp_client.send(udp_list, IP, PORT)
                 # print(udp_list)
-                
+
 
                     # if self.recording and self.record_start_time is not None:
                     #     rel_time = float(self.sample_counter) / SAMPLING_RATE
@@ -449,9 +459,9 @@ class MainWindow(QtWidgets.QMainWindow):
     #         with open(filename_txt, mode='w', newline='', encoding='utf-8') as file:
     #             writer = csv.writer(file, delimiter='\t')  # タブ区切りでTXT形式に
     #             writer.writerow([
-    #                 "%Time[s]", 
+    #                 "%Time[s]",
     #                 "Fx[N]", "Fy[N]", "Fz[N]",
-    #                 "Mx[Nm]", "My[Nm]", "Mz[Nm]", 
+    #                 "Mx[Nm]", "My[Nm]", "Mz[Nm]",
     #                 "Fx2[N]", "Fy2[N]", "Fz2[N]",
     #                 "Mx2[Nm]", "My2[Nm]", "Mz2[Nm]"
     #             ])
