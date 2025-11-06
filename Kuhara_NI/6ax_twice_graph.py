@@ -21,7 +21,7 @@ from UDPmanager.UDP_client import UDP_Client
 DEVICE_NAME = "Dev2"
 CHANNELS = ["ai1", "ai2", "ai3", "ai4", "ai5", "ai6", "ai17", "ai18", "ai19", "ai20", "ai21", "ai22"]
 SAMPLING_RATE = 1000
-BUFFER_SIZE = 50
+BUFFER_SIZE = 5
 
 ACC_INDEX = 0 #描画する加速度センサがつなげられているチャンネルのインデックス
 PLOT_DURATION_SEC = 0.5 #何秒分プロット表示しておくか
@@ -201,9 +201,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mz2_offset = 0.0
         self.mx2_offset = 0.0
         self.my2_offset = 0.0
+        self.ft_lpf_tau = 0.02  # [s], cutoff frequency for low-pass filter
+        self._ft_left_state = np.zeros(6, dtype=float)
+        self._ft_right_state = np.zeros(6, dtype=float)
+        self._dt_sample = 1.0 / SAMPLING_RATE
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
-        self.timer.start(16) #16msごとに一回プロットをアップデート（約60fps)
+        self.timer.start(16) #16msごとに一回プロットをアップデート（約60fps）
 
         # self.record_button.clicked.connect(self.start_recording)
         # self.stop_button.clicked.connect(self.stop_recording)
@@ -348,6 +352,21 @@ class MainWindow(QtWidgets.QMainWindow):
                     mx2 -= self.mx2_offset
                     my2 -= self.my2_offset
                     mz2 -= self.mz2_offset
+
+                    # raw sample calibration values
+                    raw_left = np.array(calibrated[i], dtype=float)   # [fx,fy,fz,mx,my,mz]
+                    raw_right = np.array(calibrated2[i], dtype=float)  # [fx2,fy2,fz2,mx2,my2,mz2]
+
+                    # One-pole IIR per componente (mantiene la media in uscita)
+                    tau = self.ft_lpf_tau
+                    alpha = self._dt_sample / (tau + self._dt_sample)
+                    self._ft_left_state += alpha * (raw_left - self._ft_left_state)
+                    self._ft_right_state += alpha * (raw_right - self._ft_right_state)
+                    filt_left = self._ft_left_state
+                    filt_right = self._ft_right_state
+
+                    fx, fy, fz, mx, my, mz = map(float, filt_left)
+                    fx2, fy2, fz2, mx2, my2, mz2 = map(float, filt_right)
 
                     self.data_queue.put((fx, fy, fz, mx, my, mz, fx2, fy2, fz2, mx2, my2, mz2))  # プロットに与えるデータ（ここをいじることで、描画するデータを変化できる）
 
